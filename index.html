@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecodeLab — 8086 Instruction Execution Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Outer Application Frame matching Reference Wireframe -->
+    <div class="app-frame">
+        
+        <!-- 1. Full-Width Top Header Bar -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="logo-mark">
+                    <span class="logo-core">8086</span>
+                    <span class="logo-badge">LAB</span>
+                </div>
+                <div class="brand-text">
+                    <h1 class="app-title">DecodeLab</h1>
+                    <p class="app-subtitle">8086 Assembly Language & Instruction Execution Simulator</p>
+                </div>
+            </div>
+
+            <div class="header-status">
+                <span class="status-label">STATUS:</span>
+                <span id="status-badge" class="status-badge ready">READY</span>
+            </div>
+        </header>
+
+        <!-- 2. Action Toolbar: 3 Teal Buttons Aligned on the Left -->
+        <section class="toolbar">
+            <div class="toolbar-actions">
+                <button id="btn-step" class="btn btn-teal" title="Execute one instruction">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                    Step
+                </button>
+                <button id="btn-run" class="btn btn-teal" title="Execute program until HLT">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Run
+                </button>
+                <button id="btn-reset" class="btn btn-teal" title="Restore initial CPU state">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset
+                </button>
+            </div>
+
+            <div class="toolbar-hint">
+                Program: <code>MOV AX, 0005H</code> → <code>MOV BX, 0003H</code> → <code>ADD AX, BX</code> → <code>HLT</code>
+            </div>
+        </section>
+
+        <!-- Notification Bar (Errors / Warnings) -->
+        <div id="notice-bar" class="notice-bar hidden">
+            <span id="notice-text">Ready to execute.</span>
+        </div>
+
+        <!-- 3. Main Workspace: Left Column (Code) + Right Column (Processor) -->
+        <main class="workspace-container">
+            
+            <!-- Left Column: Assembly Program Panel -->
+            <section class="panel code-panel">
+                <div class="panel-header">
+                    <span class="panel-title">📝 Assembly Program (8086)</span>
+                    <span class="panel-note">Editable Source</span>
+                </div>
+
+                <div class="editor-wrapper">
+                    <div id="line-numbers" class="line-numbers"></div>
+                    <div class="editor-area">
+                        <textarea id="assembly-editor" class="code-textarea" spellcheck="false">MOV AX, 0005H
+MOV BX, 0003H
+ADD AX, BX
+HLT</textarea>
+                        <div id="code-overlay" class="code-overlay"></div>
+                    </div>
+                </div>
+
+                <div class="panel-footer">
+                    <span>Tip: Click <strong>Step</strong> to execute line-by-line, or <strong>Run</strong> for auto execution.</span>
+                </div>
+            </section>
+
+            <!-- Right Column: Processor & Execution Panel -->
+            <section class="panel processor-panel">
+                
+                <!-- 4-Stage Instruction Cycle (Fetch -> Decode -> Execute -> Write) -->
+                <div class="sub-section cycle-section">
+                    <div class="section-title">INSTRUCTION CYCLE (FETCH → DECODE → EXECUTE → WRITE)</div>
+                    <div class="cycle-stages">
+                        <div id="stage-fetch" class="cycle-stage">
+                            <span class="stage-num">1</span>
+                            <div class="stage-info">
+                                <span class="stage-name">FETCH</span>
+                                <span class="stage-desc">Fetch instruction from memory at IP</span>
+                            </div>
+                        </div>
+                        <div class="cycle-arrow">→</div>
+                        <div id="stage-decode" class="cycle-stage">
+                            <span class="stage-num">2</span>
+                            <div class="stage-info">
+                                <span class="stage-name">DECODE</span>
+                                <span class="stage-desc">Control unit decodes opcode & operands</span>
+                            </div>
+                        </div>
+                        <div class="cycle-arrow">→</div>
+                        <div id="stage-execute" class="cycle-stage">
+                            <span class="stage-num">3</span>
+                            <div class="stage-info">
+                                <span class="stage-name">EXECUTE</span>
+                                <span class="stage-desc">ALU performs calculation in execution unit</span>
+                            </div>
+                        </div>
+                        <div class="cycle-arrow">→</div>
+                        <div id="stage-write" class="cycle-stage">
+                            <span class="stage-num">4</span>
+                            <div class="stage-info">
+                                <span class="stage-name">WRITE</span>
+                                <span class="stage-desc">Write result to destination & update IP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CPU Registers & Flags -->
+                <div class="sub-section registers-flags-section">
+                    <!-- Registers: AX, BX, IP -->
+                    <div class="reg-group">
+                        <div class="section-title">CPU REGISTERS</div>
+                        <div class="registers-grid">
+                            <div class="reg-card" id="card-AX">
+                                <span class="reg-label">AX <small>(Accumulator)</small></span>
+                                <span class="reg-value" id="val-AX">0000H</span>
+                            </div>
+                            <div class="reg-card" id="card-BX">
+                                <span class="reg-label">BX <small>(Base)</small></span>
+                                <span class="reg-value" id="val-BX">0000H</span>
+                            </div>
+                            <div class="reg-card special-reg" id="card-IP">
+                                <span class="reg-label">IP <small>(Inst Pointer)</small></span>
+                                <span class="reg-value" id="val-IP">0000H</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flags: ZF, CF with status labels -->
+                    <div class="flag-group">
+                        <div class="section-title">CONDITION FLAGS</div>
+                        <div class="flags-grid">
+                            <div class="flag-card" id="card-ZF" title="Zero Flag: 1 if arithmetic result is zero, otherwise 0">
+                                <span class="flag-label">ZF <small>(Zero Flag)</small></span>
+                                <span class="flag-value" id="val-ZF">0</span>
+                                <span class="flag-desc" id="status-ZF">Result ≠ 0</span>
+                            </div>
+                            <div class="flag-card" id="card-CF" title="Carry Flag: 1 if unsigned carry occurred, otherwise 0">
+                                <span class="flag-label">CF <small>(Carry Flag)</small></span>
+                                <span class="flag-value" id="val-CF">0</span>
+                                <span class="flag-desc" id="status-CF">No Carry</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Execution Explanation & Calculation Detail -->
+                <div class="sub-section explanation-section">
+                    <div class="section-title">CURRENT INSTRUCTION EXPLANATION</div>
+                    
+                    <div class="explanation-box">
+                        <div class="explanation-inst" id="exp-instruction">--</div>
+                        <div class="explanation-text" id="exp-text">Click <strong>Step</strong> or <strong>Run</strong> to begin execution.</div>
+                        <div class="explanation-calc hidden" id="exp-calc"></div>
+                    </div>
+
+                    <!-- Completion Banner -->
+                    <div id="success-banner" class="success-banner hidden">
+                        <span class="success-icon">✓</span>
+                        <div class="success-content">
+                            <strong>Program Execution Completed (HLT)</strong>
+                            <span>Final Result: <code>AX = 0008H</code>, <code>BX = 0003H</code>, <code>ZF = 0</code>, <code>CF = 0</code></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Execution Trace Table (with dedicated ZF and CF columns!) -->
+                <div class="sub-section trace-section">
+                    <div class="section-title">EXECUTION TRACE</div>
+                    <div class="trace-wrapper">
+                        <table class="trace-table">
+                            <thead>
+                                <tr>
+                                    <th>Step</th>
+                                    <th>IP</th>
+                                    <th>Instruction</th>
+                                    <th>AX</th>
+                                    <th>BX</th>
+                                    <th>ZF</th>
+                                    <th>CF</th>
+                                    <th>Operation Summary</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trace-body">
+                                <tr class="empty-trace">
+                                    <td colspan="8">No instructions executed yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="cpu.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
